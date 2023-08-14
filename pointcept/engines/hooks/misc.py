@@ -185,7 +185,16 @@ class CheckpointLoader(HookBase):
                                      f"replace keyword with: {self.replacement}")
             weight = OrderedDict([(key.replace(self.keywords, self.replacement), value)
                                   for key, value in checkpoint['state_dict'].items() if self.keywords in key])
-            load_state_info = self.trainer.model.load_state_dict(weight, strict=self.strict)
+            # Debug - Added
+            model_state = self.trainer.model.state_dict()
+            filtered_weight = {
+                k: v for k, v in weight.items() if k in model_state and v.size() == model_state[k].size() 
+            }
+            
+            # Debug - Changed
+            #load_state_info = self.trainer.model.load_state_dict(weight, strict=self.strict)
+            load_state_info = self.trainer.model.load_state_dict(filtered_weight, strict=False)
+
             self.trainer.logger.info(f"Missing keys: {load_state_info[0]}")
             if self.trainer.cfg.resume:
                 self.trainer.logger.info(f"Resuming train at eval epoch: {checkpoint['epoch']}")
