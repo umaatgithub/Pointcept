@@ -10,8 +10,8 @@ from pointcept.models.builder import MODELS
 from pointcept.models.utils import offset2batch, batch2offset
 
 
-@MODELS.register_module("Swin3D-v1m1")
-class Swin3DUNet(nn.Module):
+@MODELS.register_module("Swin3D-v1m1-ssc")
+class Swin3DUNetSSC(nn.Module):
     def __init__(self,
                  in_channels,
                  num_classes,
@@ -120,6 +120,7 @@ class Swin3DUNet(nn.Module):
             minkowski_algorithm=ME.MinkowskiAlgorithm.SPEED_OPTIMIZED,
             device=feat.device)
 
+        breakpoint()
         sp = in_field.sparse()
         coords_sp = SparseTensor(
             features=sp.F[:, :10],
@@ -131,30 +132,57 @@ class Swin3DUNet(nn.Module):
             coordinate_map_key=sp.coordinate_map_key,
             coordinate_manager=sp.coordinate_manager,
         )
+
         sp_stack = []
         coords_sp_stack = []
+        #[213619, 9], [213619, 10]
         sp = self.stem_layer(sp)
-        if self.layer_start > 0:
+        #[213619, 48], [213619, 10]
+        
+        if self.layer_start > 0: #x
             sp_stack.append(sp)
             coords_sp_stack.append(coords_sp)
             sp, coords_sp = self.downsample(sp, coords_sp)
 
         for i, layer in enumerate(self.layers):
             coords_sp_stack.append(coords_sp)
+            ''' Debug
+            # 0:[213619,  48], [213619, 10]
+            # 1:[ 21922,  96], [ 21922, 10]
+            # 2:[  5161, 192], [  5161, 10]
+            # 3:[  1160, 384], [  1160, 10]
+            # 4:[   251, 384], [   251, 10]
+            '''
             sp, sp_down, coords_sp = layer(sp, coords_sp)
+            ''' Debug
+            # 0:[213619,  48], [21922,  96], [21922, 10]
+            # 1:[ 21922,  96], [ 5161, 192], [ 5161, 10]
+            # 2:[  5161, 192], [ 1160, 384], [ 1160, 10]
+            # 3:[  1160, 384], [  251, 384], [  251, 10]
+            # 4:[   251, 384], [  251, 384], [  251, 10]
+            '''
             sp_stack.append(sp)
             assert (coords_sp.C == sp_down.C).all()
             sp = sp_down
 
         sp = sp_stack.pop()
         coords_sp = coords_sp_stack.pop()
+        breakpoint()
         for i, upsample in enumerate(self.upsamples):
             sp_i = sp_stack.pop()
             coords_sp_i = coords_sp_stack.pop()
+            ''' Debug
+            # 0: torch.Size([251, 384]), torch.Size([251, 10]), torch.Size([1160, 384]), torch.Size([1160, 10])
+            # 1: torch.Size([1160, 384]), torch.Size([1160, 10]), torch.Size([5161, 192]), torch.Size([5161, 10])
+            # 2: torch.Size([5161, 192]), torch.Size([5161, 10]), torch.Size([21922, 96]), torch.Size([21922, 10])
+            # 3: torch.Size([21922, 96]), torch.Size([21922, 10]), torch.Size([213619, 48]), torch.Size([213619, 10])
+            '''
             sp = upsample(sp, coords_sp, sp_i, coords_sp_i)
             coords_sp = coords_sp_i
-
+        
+        # [213619, 48]
         output = self.classifier(sp.slice(in_field).F)
+        # Dense Tensor [214618, 13]
         return output
 
     def init_weights(self):

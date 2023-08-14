@@ -368,6 +368,7 @@ class Upsample(nn.Module):
         offset = get_offset(sp.C[:, 0])
         support_offset = get_offset(sp_up.C[:, 0])
 
+        # TBD: 
         feats = self.linear1(support_feats) + knn_linear_interpolation(
             xyz, support_xyz, self.linear2(feats), offset, support_offset, K=self.up_k
         )
@@ -854,17 +855,23 @@ class BasicLayer(nn.Module):
             :, 1:
         ] / coords_sp.coordinate_map_key.get_tensor_stride()[0]
         self.device = sp.device
+        # Shift sp
         sp_shift = self.get_shifted_sp(sp)
 
+        # Get attention args with sp
         attn_args = self.get_index01(sp, local_xyz, colors)
+        # Get attention args with sp shifted
         attn_args_shift = self.get_index01(sp_shift, local_xyz, colors)
 
         feats = sp.F
         for i, blk in enumerate(self.blocks):
+            # 0 : Swin Transformer block without shifted args
+            # 1 : Swin Transformer block with shifted args
             attn_args_blk = attn_args if i % 2 == 0 else attn_args_shift
             feats = blk(feats, attn_args_blk)  # [N, C]
-
         sp = assign_feats(sp, feats)
+
+        # Downsample (Downsample the points, doubles the feature size)
         if self.downsample is not None:
             sp_down, coords_sp = self.downsample(sp, coords_sp)
             return sp, sp_down, coords_sp
