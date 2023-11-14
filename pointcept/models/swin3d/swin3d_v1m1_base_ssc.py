@@ -121,6 +121,9 @@ class Swin3DUNetSSC(nn.Module):
             device=feat.device)
 
         breakpoint()
+        train = torch.load('data/structured3d/train/scene_00000/room_485142.pth')
+        val = torch.load('data/structured3d/val/scene_03000/room_171.pth')
+        test = torch.load('data/structured3d/test/scene_03250/room_859972.pth')
         sp = in_field.sparse()
         coords_sp = SparseTensor(
             features=sp.F[:, :10],
