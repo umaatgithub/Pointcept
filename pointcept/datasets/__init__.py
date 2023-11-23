@@ -5,6 +5,7 @@ from .scannet import ScanNetDataset, ScanNet200Dataset
 from .scannet_pair import ScanNetPairDataset
 from .arkitscenes import ArkitScenesDataset
 from .structure3d import Structured3DDataset
+from .touchstone3d import Touchstone3DDataset
 # outdoor scene
 from .semantic_kitti import SemanticKITTIDataset
 from .nuscenes import NuScenesDataset
